@@ -126,14 +126,7 @@ df_peso_muerto <- df_peso_muerto |>
   mutate(fecha_2 = dmy(fecha))
 ```
 
-```{r}
-df_press_militar <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Press Militar", skip = 3, na=c("N/A", " "))
-df_press_militar <- df_press_militar |>
-  janitor::clean_names() |>
-  rowwise()|>
-  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE)) |>
-  mutate(fecha_2 = dmy(fecha))
-```
+
 
 ```{r}
 df_clean <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Clean", skip = 3, na=c("N/A", " "))
@@ -292,21 +285,6 @@ grafico_peso_muerto <- df_peso_muerto |>
 grafico_peso_muerto
 ```
 
-```{r}
-grafico_press_militar <- df_press_militar |>
-  ggplot(aes(x = fecha_2, y = peso_max)) +
-  geom_line(color = "#F0AAE9") +
-  geom_point(color = "#CF88C4") +
-  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
-  labs(
-    title = "Progreso en Press Militar",
-    x = "Fecha",
-    y = "Peso Máximo Levantado (kg)"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(family = "Vladimir Script"))
-grafico_press_militar
-```
 
 ```{r}
 grafico_clean <- df_clean |>
