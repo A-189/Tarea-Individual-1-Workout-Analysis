@@ -1,3 +1,321 @@
-Gráficos para ver visualmente mi progreso en el gimnasio. A la vez, observando la regresión lineal de ésta y verificar que vaya progresando con el tiempo. 
+# Tutorial de cómo ver tu progreso en el Gym
 
-La base de datos es en base a un Excel hecho por mi autoría.
+## Etapa 1: Arreglar nuestra tabla de datos
+
+Hola, bienvenidos a mi tutorial de cómo analizar su progreso en el Gym.
+
+Para este proyecto en específico, veremos nuestros avances para cada ejercicio en el gimnasio.
+
+Primero, lo que haremos será cargar los paquetes para hacer funcional nuestros códigos:
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(ggplot2)
+```
+
+Ahora, cargamos la base de datos que usaremos En mi caso, tengo mi progreso en un archivo Excel
+
+```{r}
+df_workout_tracker <- read_xlsx("Workout Tracker (para R Studio).xlsx", 
+                                skip = 3, 
+                                na=c("N/A", " "))
+```
+
+-   Pusimos el `skip` porque las primeras 3 filas no son datos, sino que títulos o espacios en blanco.
+
+-   Y pusimos el `na = c("N/A", " ")` porque dentro de los datos, hay datos que les puse N/A porque no hice ese set y también le puse a los espacios en blanco (" ") por cualquier cosa.
+
+Ahora, estandarizaremos los nombres de las columnas para que sea más fácil trabajar con ellos.
+
+```{r}
+df_workout_tracker <- df_workout_tracker |>
+  janitor::clean_names()
+```
+
+Como verán, uno al ingresar a la base de datos verá muchos `peso_kg` y `reps` con números al costado. Esto sucede porque son columnas con nombres repetidos, para evitar confusiones, R les pone un número al costado.
+
+Ahora, el objetivo de este tutorial es sacar el máximo de peso levantado por ejercicio en función de la fecha y así ver nuestro progreso al pasar los días y poder sacar análisis a partir de ellos.
+
+Por lo que en este caso, **ignoraremos las repeticiones y solo nos enfocaremos en el peso levantado, especificamente en el peso máximo**.
+
+Para hacerlo posible, solo queremos considerar las columnas de los pesos levantados, los cuale serían `peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12`.
+
+Pero, aparte de querer seleccionar esas columnas, nosotros queremos tener sólo las observaciones que indiquen el peso máximo levantado ese día.
+
+Por ello, es que usaremos la siguiente función:
+
+```{r}
+df_workout_tracker <- df_workout_tracker |>
+  rowwise()|>
+  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE))
+```
+
+Ya, tenemos ese código, pero **¿qué significa cada cosa?**
+
+-   Primero, usamos `rowwise()` para indicarle a R que queremos hacer las operaciones de acuerdo **a las filas**.
+
+-   Luego, usamos `mutate()` para crear una nueva columna llamada `peso_max`, esta la usaremos después para nuestro gráfico.
+
+-   Dentro de `mutate()`, usamos la función `max()` para calcular el valor máximo entre las columnas de peso que mencionamos antes, es decir, buscará el peso máximo de ese día y creará una columna aparte, y el `na.rm =TRUE` es para que que ignoren todos los valores que sean N/A y no nos tire error (porque hay **muchos N/A** en nuestro Excel).
+
+Ahora abrimos nuestra base de datos desde el *Environment* para verificar que se haya creado nuestra columna de peso máximo por día:
+
+```{r}
+View(df_workout_tracker)
+```
+
+(Ahora, suponiendo que lo abrieron) Perfecto, ¡ya creamos nuestra columna de peso máximo por día!
+
+Pero hay un pequeño problema.... ¡Nuestra columna de fecha no está escrita en un formato estándar y se entiende como si fuese un dato numérico! ¿Cómo podemos arreglarlo para que se entienda que es una fecha?
+
+Para ello, usaremos esta función:
+
+```{r}
+df_workout_tracker <- df_workout_tracker |>
+  mutate(fecha_2 = dmy(fecha))
+```
+
+¿Qué significa lo que acabamos de hacer?
+
+-   Usamos `mutate()` para crear una nueva columna llamada `fecha_2` (porque fecha sin número ya existe en el Excel original).
+
+-   Dentro de `mutate()`, usamos la función `dmy()` del paquete `lubridate` (que viene con tidyverse) para convertir la columna seleccionada en fecha. **dmy significa date month year**, es decir, día mes año, tal y como está puesto en el Excel.
+
+¡Logrado! Pero aún no termina la primera etapa del tutorial. Hasta el momento, sólo hemos trabajando con el primer sheet que es "Sentadilla".
+
+Nosotros queremos verlo para **todos los ejercicios**, por lo que repetiremos el mismo procedimiento para los otros sheets.
+
+Para ello, usaremos este código:
+
+(Es el mismo que usamos para poner el Excel en R, solo que le agregamos el código `sheet="nombre del sheet"`)
+
+```{r}
+df_press_banca <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Press Banca", skip = 3, na=c("N/A", " "))
+df_press_banca <- df_press_banca |>
+  janitor::clean_names() |>
+  rowwise()|>
+  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE)) |>
+  mutate(fecha_2 = dmy(fecha))
+```
+
+Acá hicimos lo mismo que lo dicho anteriormente, pero más juntitos y comprimidos.
+
+Ahora, volvemos a repetir para todos los demás ejercicios
+
+```{r}
+df_peso_muerto <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Peso Muerto", skip = 3, na=c("N/A", " "))
+df_peso_muerto <- df_peso_muerto |>
+  janitor::clean_names() |>
+  rowwise()|>
+  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE)) |>
+  mutate(fecha_2 = dmy(fecha))
+```
+
+```{r}
+df_clean <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Clean", skip = 3, na=c("N/A", " "))
+df_clean <- df_clean |>
+  janitor::clean_names() |>
+  rowwise()|>
+  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE)) |>
+  mutate(fecha_2 = dmy(fecha))
+```
+
+```{r}
+df_remo <- read_xlsx("Workout Tracker (para R Studio).xlsx", sheet="Remo", skip = 3, na=c("N/A", " "))
+df_remo <- df_remo |>
+  janitor::clean_names() |>
+  rowwise()|>
+  mutate(peso_max = max(peso_kg_2, peso_kg_4, peso_kg_6, peso_kg_8, peso_kg_10, peso_kg_12, na.rm = TRUE)) |>
+  mutate(fecha_2 = dmy(fecha))
+```
+
+**OJO**: no nos olvidemos de modificar el nombre de nuestro sheet inicial, que era el de sentadilla
+
+```{r}
+df_sentadilla <- df_workout_tracker
+```
+
+A la vez, eliminaremos el original que hicimos, para evitar confusiones
+
+```{r}
+rm(df_workout_tracker)
+```
+
+¡Y listo! Terminamos la primera etapa que es la de ordenar los datos.
+
+## Etapa 2: Graficar nuestro progreso
+
+¡Bienvenidos de vuelta al tutorial!
+
+En esta nueva etapa, vamos a usar las columnas creadas en la Etapa 1 (fecha y peso máximo) para crear nuestro gráfico que plasme nuestro progreso en el gym!
+
+Para ello, usaremos la función `ggplot` para crear gráficos
+
+El código que usaremos es el siguiente (para sentadilla en este caso):
+
+```{r}
+grafico_sentadilla <- df_sentadilla |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Sentadilla",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)"
+  ) +
+  theme_minimal()
+```
+
+¿Qué son esa cantidad de cosas? ¿Qué significa cada cosa escrita para el gráfico?
+
+-   Primero, `grafico_sentadilla <- df_sentadilla` fue para crear nuestro gráfico en base a df_sentadilla
+
+-   Segundo, `ggplot(aes(x = fecha_2, y = peso_max)) +` es para crear nuestro gráfico con X siendo la columna "fecha_2".
+
+-   Tercero, `geom_line` es el código para crear la línea, y el color que usamos es del código `#F0AAE9`.
+
+-   Cuarto, lo mismo con `geom_point`, solamente que ese es para los puntos.
+
+-   Quinto, `geom_smooth` con `method=lm` es para crear una línea de regresión lineal (y así ver la **tendencia** en nuestro progreso).
+
+-   Sexto, `labs` es para personalizar más los detalles de nuestro gráfico, en este caso, para poner el título, el nombre de X y de Y.
+
+-   Y por último, usamos `theme_minimal` para usar el tema más simple de `ggplot`.
+
+Podemos ver lo hecho en nuestro gráfico de sentadilla con este código:
+
+```{r}
+grafico_sentadilla
+```
+
+Si queremos hacer nuestro gráfico aún más personalizado, podemos cambiarle la fuente del texto.
+
+En mi caso, **solo quiero cambiar el título y hacerlo en cursiva**.
+
+Para ello, usaremos el paquete `extrafont` para tener más variedad de fuentes a escoger
+
+```{r}
+install.packages('extrafont')
+library(extrafont)
+font_import()
+```
+
+Para ver la lista de fuentes que tenemos para escoger, usamos este código:
+
+```{r}
+fonts()
+```
+
+-   Ahora, lo sumaremos al código de `theme_minimal` usando este código: `theme_minimal() + theme(plot.title = element_text(family = "Vladimir Script"))`
+
+-   En mi caso, solo quiero ponerle cursiva al título, por lo que usaremos el código `plot.title` para ello.
+
+-   Y dentro de `plot.title`, usamos `element_text(family = "nombre de la fuente que queremos usar")`.
+
+Ahora, pondremos lo aprendido en nuestro gráfico de sentadilla.
+
+Lo cual usaremos el mismo código de antes, solo que **agregando el código para la fuente personalizada**:
+
+#### Sentadilla
+
+```{r}
+grafico_sentadilla <- df_sentadilla |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Sentadilla",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Vladimir Script"))
+```
+
+![](/Gráficos%20Progreso/Sentadilla.png)
+
+Ahora, como lo hemos hecho con los anteriores, volveremos a repetir los mismos pasos para los otros ejercicios:
+
+#### Press banca
+
+```{r}
+grafico_press_banca <- df_press_banca |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Press Banca",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Vladimir Script"))
+```
+
+![](/Gráficos%20Progreso/Press%20banca.png)
+
+#### Peso muerto
+
+```{r}
+grafico_peso_muerto <- df_peso_muerto |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Peso Muerto",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Vladimir Script"))
+```
+
+![](/Gráficos%20Progreso/Peso%20muerto.png)
+
+#### Clean
+
+```{r}
+grafico_clean <- df_clean |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Clean",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Vladimir Script"))
+```
+
+![](/Gráficos%20Progreso/Clean.png)
+
+#### Remo
+
+```{r}
+grafico_remo <- df_remo |>
+  ggplot(aes(x = fecha_2, y = peso_max)) +
+  geom_line(color = "#F0AAE9") +
+  geom_point(color = "#CF88C4") +
+  geom_smooth(method = "lm", color = "#78A7FF", se = FALSE) +
+  labs(
+    title = "Progreso en Remo",
+    x = "Fecha",
+    y = "Peso Máximo Levantado (kg)",
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(family = "Vladimir Script"))
+```
+
+![](/Gráficos%20Progreso/Remo.png)
+
+¡Y listo!
+
+**Cuéntame como te va con el análisis de tus ejercicios.**
